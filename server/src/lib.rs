@@ -1,6 +1,8 @@
 //! zblog backend library.
 
+pub mod config;
 pub mod error;
+pub mod infrastructure;
 
 use axum::{routing::get, Json, Router};
 

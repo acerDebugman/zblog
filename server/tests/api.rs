@@ -14,3 +14,19 @@ async fn health_returns_ok() {
     let body: serde_json::Value = res.json().await.unwrap();
     assert_eq!(body["status"], "ok");
 }
+
+#[tokio::test]
+async fn migrations_create_tables() {
+    let dir = tempfile::tempdir().unwrap();
+    let url = format!("sqlite:{}", dir.path().join("t.db").display());
+    let pool = zblog_server::infrastructure::db::create_pool(&url)
+        .await
+        .unwrap();
+    let names: Vec<String> =
+        sqlx::query_scalar("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert!(names.contains(&"articles".to_owned()));
+    assert!(names.contains(&"pageviews".to_owned()));
+}
