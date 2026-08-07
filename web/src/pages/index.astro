@@ -1,10 +1,44 @@
 ---
 import Layout from '../layouts/Layout.astro'
+import { listPublished, recordPageview } from '../lib/api'
+import { formatDay, groupByYear } from '../lib/date'
+
+const articles = (await listPublished()).filter(
+  (a): a is typeof a & { published_at: string } => a.published_at !== null,
+)
+const groups = groupByYear(articles)
+
+await recordPageview({
+  path: '/',
+  article_id: null,
+  ip: Astro.clientAddress,
+  user_agent: Astro.request.headers.get('user-agent') ?? '',
+  referer: Astro.request.headers.get('referer') ?? '',
+})
 ---
 
 <Layout title="首页">
-  <div class="hero">
-    <h1>你好，这里是我的博客</h1>
-    <p>文章列表即将到来。</p>
-  </div>
+  <section class="hero">
+    <h1>你好，我是这里的主人 👋</h1>
+    <p>
+      欢迎来到我的小站。这里记录我的学习与生活。
+      <a href="/about">了解更多 →</a>
+    </p>
+  </section>
+
+  {groups.length === 0 && <p class="muted">还没有文章，敬请期待。</p>}
+
+  {
+    groups.map((group) => (
+      <section class="year-group">
+        <h2 class="year-title">{group.year}</h2>
+        {group.items.map((item) => (
+          <div class="post-item">
+            <span class="post-date">{formatDay(item.published_at)}</span>
+            <a href={`/posts/${item.slug}`}>{item.title}</a>
+          </div>
+        ))}
+      </section>
+    ))
+  }
 </Layout>
