@@ -4,6 +4,8 @@ pub mod admin;
 pub mod articles;
 pub mod dto;
 pub mod middleware;
+pub mod pageviews;
+pub mod stats;
 
 use std::sync::Arc;
 
@@ -69,6 +71,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/health", get(health))
         .route("/api/articles", get(articles::list_published))
         .route("/api/articles/{slug}", get(articles::get_by_slug))
+        .route("/api/pageviews", post(pageviews::record))
         .route("/api/admin/login", post(admin::login));
     let admin = Router::new()
         .route("/api/admin/logout", post(admin::logout))
@@ -81,6 +84,10 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/admin/articles/{id}/publish", post(admin::publish_article))
         .route("/api/admin/articles/{id}/unpublish", post(admin::unpublish_article))
         .route("/api/admin/articles/by-slug/{slug}", get(admin::get_article_by_slug))
+        .route("/api/admin/stats/overview", get(stats::overview))
+        .route("/api/admin/stats/daily", get(stats::daily))
+        .route("/api/admin/stats/articles", get(stats::articles))
+        .route("/api/admin/stats/ips", get(stats::ips))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             middleware::require_auth,

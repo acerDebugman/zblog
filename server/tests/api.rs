@@ -282,3 +282,89 @@ async fn admin_article_crud_and_preview_lookup() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn pageview_ingestion_and_stats() {
+    let app = spawn_app().await;
+    let article = seed(&app.db_url, "Watched Post", "w", true).await;
+
+    // negative: validation
+    let res = app
+        .client
+        .post(format!("{}/api/pageviews", app.base_url))
+        .json(&serde_json::json!({ "path": "", "ip": "1.1.1.1" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+
+    for ip in ["1.1.1.1", "1.1.1.1", "2.2.2.2"] {
+        let res = app
+            .client
+            .post(format!("{}/api/pageviews", app.base_url))
+            .json(&serde_json::json!({
+                "path": "/posts/watched-post",
+                "article_id": article.id,
+                "ip": ip,
+                "user_agent": "curl"
+            }))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), StatusCode::CREATED);
+    }
+
+    // negative: stats are admin-only
+    let res = app
+        .client
+        .get(format!("{}/api/admin/stats/overview", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+
+    login(&app).await;
+    let res = app
+        .client
+        .get(format!("{}/api/admin/stats/overview", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let overview: serde_json::Value = res.json().await.unwrap();
+    assert_eq!(overview["total_pv"], 3);
+    assert_eq!(overview["total_uv"], 2);
+    assert_eq!(overview["today_pv"], 3);
+
+    let res = app
+        .client
+        .get(format!("{}/api/admin/stats/daily?days=7", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    let daily: Vec<serde_json::Value> = res.json().await.unwrap();
+    assert_eq!(daily.len(), 1);
+    assert_eq!(daily[0]["pv"], 3);
+
+    let res = app
+        .client
+        .get(format!("{}/api/admin/stats/articles", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    let by_article: Vec<serde_json::Value> = res.json().await.unwrap();
+    assert_eq!(by_article.len(), 1);
+    assert_eq!(by_article[0]["title"], "Watched Post");
+    assert_eq!(by_article[0]["pv"], 3);
+
+    let res = app
+        .client
+        .get(format!("{}/api/admin/stats/ips?limit=1", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    let ips: Vec<serde_json::Value> = res.json().await.unwrap();
+    assert_eq!(ips.len(), 1);
+    assert_eq!(ips[0]["ip"], "1.1.1.1");
+    assert_eq!(ips[0]["count"], 2);
+}
