@@ -26,7 +26,9 @@ pub async fn login(
 ) -> Result<(PrivateCookieJar, Json<serde_json::Value>)> {
     let parsed = PasswordHash::new(&state.config.password_hash)
         .map_err(|e| AppError::Internal(format!("invalid ZBLOG_PASSWORD_HASH: {e}")))?;
-    let ok = Argon2::default().verify_password(body.password.as_bytes(), &parsed).is_ok();
+    let ok = Argon2::default()
+        .verify_password(body.password.as_bytes(), &parsed)
+        .is_ok();
     if !ok {
         return Err(AppError::Unauthorized);
     }
@@ -83,7 +85,11 @@ pub async fn get_article(
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<Json<Article>> {
-    state.articles.find_by_id(id).await?.map_or(Err(AppError::NotFound), |a| Ok(Json(a)))
+    state
+        .articles
+        .find_by_id(id)
+        .await?
+        .map_or(Err(AppError::NotFound), |a| Ok(Json(a)))
 }
 
 /// `GET /api/admin/articles/by-slug/{slug}` — draft preview lookup.
@@ -95,7 +101,11 @@ pub async fn get_article_by_slug(
     State(state): State<AppState>,
     Path(slug): Path<String>,
 ) -> Result<Json<Article>> {
-    state.articles.find_by_slug(&slug).await?.map_or(Err(AppError::NotFound), |a| Ok(Json(a)))
+    state
+        .articles
+        .find_by_slug(&slug)
+        .await?
+        .map_or(Err(AppError::NotFound), |a| Ok(Json(a)))
 }
 
 /// `PUT /api/admin/articles/{id}` — update title/slug/markdown.
@@ -112,7 +122,12 @@ pub async fn update_article(
     if body.title.trim().is_empty() {
         return Err(AppError::BadRequest("title must not be empty".to_owned()));
     }
-    Ok(Json(state.articles.update(id, &body.title, &body.slug, &body.markdown).await?))
+    Ok(Json(
+        state
+            .articles
+            .update(id, &body.title, &body.slug, &body.markdown)
+            .await?,
+    ))
 }
 
 /// `POST /api/admin/articles/{id}/publish`.
@@ -124,7 +139,12 @@ pub async fn publish_article(
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<Json<Article>> {
-    Ok(Json(state.articles.set_status(id, ArticleStatus::Published).await?))
+    Ok(Json(
+        state
+            .articles
+            .set_status(id, ArticleStatus::Published)
+            .await?,
+    ))
 }
 
 /// `POST /api/admin/articles/{id}/unpublish`.
@@ -136,7 +156,9 @@ pub async fn unpublish_article(
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<Json<Article>> {
-    Ok(Json(state.articles.set_status(id, ArticleStatus::Draft).await?))
+    Ok(Json(
+        state.articles.set_status(id, ArticleStatus::Draft).await?,
+    ))
 }
 
 /// `DELETE /api/admin/articles/{id}`.

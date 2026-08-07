@@ -26,7 +26,10 @@ pub async fn require_auth(
     request: Request,
     next: Next,
 ) -> Result<Response> {
-    if jar.get(AUTH_COOKIE).is_some_and(|c| c.value() == AUTH_VALUE) {
+    if jar
+        .get(AUTH_COOKIE)
+        .is_some_and(|c| c.value() == AUTH_VALUE)
+    {
         Ok(next.run(request).await)
     } else {
         Err(AppError::Unauthorized)

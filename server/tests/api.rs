@@ -85,9 +85,12 @@ async fn seed(
     let repo = zblog_server::infrastructure::article_repo::ArticleRepo::new(pool);
     let article = repo.create(title, markdown).await.unwrap();
     if publish {
-        repo.set_status(article.id, zblog_server::domain::article::ArticleStatus::Published)
-            .await
-            .unwrap()
+        repo.set_status(
+            article.id,
+            zblog_server::domain::article::ArticleStatus::Published,
+        )
+        .await
+        .unwrap()
     } else {
         article
     }
@@ -150,12 +153,25 @@ async fn login(app: &TestApp) {
     assert_eq!(res.status(), StatusCode::OK);
 }
 
+async fn get(app: &TestApp, path: &str) -> reqwest::Response {
+    app.client
+        .get(format!("{}{path}", app.base_url))
+        .send()
+        .await
+        .unwrap()
+}
+
 #[tokio::test]
 async fn auth_flow() {
     let app = spawn_app().await;
 
     // negative: admin endpoints reject anonymous callers
-    let res = app.client.get(format!("{}/api/admin/articles", app.base_url)).send().await.unwrap();
+    let res = app
+        .client
+        .get(format!("{}/api/admin/articles", app.base_url))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
 
     // negative: wrong password
@@ -169,12 +185,27 @@ async fn auth_flow() {
     assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
 
     login(&app).await;
-    let res = app.client.get(format!("{}/api/admin/me", app.base_url)).send().await.unwrap();
+    let res = app
+        .client
+        .get(format!("{}/api/admin/me", app.base_url))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
 
-    let res = app.client.post(format!("{}/api/admin/logout", app.base_url)).send().await.unwrap();
+    let res = app
+        .client
+        .post(format!("{}/api/admin/logout", app.base_url))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
-    let res = app.client.get(format!("{}/api/admin/me", app.base_url)).send().await.unwrap();
+    let res = app
+        .client
+        .get(format!("{}/api/admin/me", app.base_url))
+        .send()
+        .await
+        .unwrap();
     assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
 }
 
@@ -207,19 +238,9 @@ async fn admin_article_crud_and_preview_lookup() {
     assert_eq!(created["slug"], "draft-one");
 
     // draft visible through admin by-slug (Draft Preview), not publicly
-    let res = app
-        .client
-        .get(format!("{}/api/admin/articles/by-slug/draft-one", app.base_url))
-        .send()
-        .await
-        .unwrap();
+    let res = get(&app, "/api/admin/articles/by-slug/draft-one").await;
     assert_eq!(res.status(), StatusCode::OK);
-    let res = app
-        .client
-        .get(format!("{}/api/articles/draft-one", app.base_url))
-        .send()
-        .await
-        .unwrap();
+    let res = get(&app, "/api/articles/draft-one").await;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
 
     // update
@@ -246,23 +267,26 @@ async fn admin_article_crud_and_preview_lookup() {
     let published: serde_json::Value = res.json().await.unwrap();
     assert_eq!(published["status"], "published");
     assert!(published["published_at"].is_string());
-    let res = app.client.get(format!("{}/api/articles", app.base_url)).send().await.unwrap();
+    let res = get(&app, "/api/articles").await;
     let list: Vec<serde_json::Value> = res.json().await.unwrap();
     assert_eq!(list.len(), 1);
 
     let res = app
         .client
-        .post(format!("{}/api/admin/articles/{id}/unpublish", app.base_url))
+        .post(format!(
+            "{}/api/admin/articles/{id}/unpublish",
+            app.base_url
+        ))
         .send()
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
-    let res = app.client.get(format!("{}/api/articles", app.base_url)).send().await.unwrap();
+    let res = get(&app, "/api/articles").await;
     let list: Vec<serde_json::Value> = res.json().await.unwrap();
     assert_eq!(list.len(), 0);
 
     // admin list still contains the draft
-    let res = app.client.get(format!("{}/api/admin/articles", app.base_url)).send().await.unwrap();
+    let res = get(&app, "/api/admin/articles").await;
     let all: Vec<serde_json::Value> = res.json().await.unwrap();
     assert_eq!(all.len(), 1);
 

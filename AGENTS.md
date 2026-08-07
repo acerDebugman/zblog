@@ -9,6 +9,22 @@ zblog 是一个博客项目。
 
 > 项目尚在初始阶段，目录结构、构建命令等随开发进展补充。
 
+## Directory Layout
+
+- `server/` — Rust 后端（axum + sqlx + SQLite），`src/` 为源码，`tests/` 为集成测试，`migrations/` 为数据库迁移，`examples/hash_password.rs` 用于生成管理员密码哈希
+- `web/` — Astro SSR + Vue 3 前端，`src/pages/` 为路由（含 `api/[...path].ts` 同源代理），`src/components/` 为 Vue 组件，`src/lib/` 为 API 客户端与 Markdown 渲染管线
+- `docs/adr/` — 架构决策记录
+
+## Build & Test Commands
+
+- 后端运行: `cd server && cargo run`（需 `ZBLOG_PASSWORD_HASH`、`ZBLOG_SESSION_SECRET` 环境变量）
+- 后端测试: `cargo test --manifest-path server/Cargo.toml`
+- 后端 lint: `cargo clippy --manifest-path server/Cargo.toml --all-targets`
+- 前端开发: `cd web && pnpm dev`
+- 前端构建运行: `cd web && pnpm build && node ./dist/server/entry.mjs`
+- 前端测试: `cd web && pnpm vitest run`
+- 前端类型检查: `cd web && pnpm astro check`
+
 ## Technology Stack
 
 ### Backend

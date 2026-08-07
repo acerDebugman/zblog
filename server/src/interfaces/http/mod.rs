@@ -76,14 +76,28 @@ pub fn build_router(state: AppState) -> Router {
     let admin = Router::new()
         .route("/api/admin/logout", post(admin::logout))
         .route("/api/admin/me", get(admin::me))
-        .route("/api/admin/articles", get(admin::list_articles).post(admin::create_article))
+        .route(
+            "/api/admin/articles",
+            get(admin::list_articles).post(admin::create_article),
+        )
         .route(
             "/api/admin/articles/{id}",
-            get(admin::get_article).put(admin::update_article).delete(admin::delete_article),
+            get(admin::get_article)
+                .put(admin::update_article)
+                .delete(admin::delete_article),
         )
-        .route("/api/admin/articles/{id}/publish", post(admin::publish_article))
-        .route("/api/admin/articles/{id}/unpublish", post(admin::unpublish_article))
-        .route("/api/admin/articles/by-slug/{slug}", get(admin::get_article_by_slug))
+        .route(
+            "/api/admin/articles/{id}/publish",
+            post(admin::publish_article),
+        )
+        .route(
+            "/api/admin/articles/{id}/unpublish",
+            post(admin::unpublish_article),
+        )
+        .route(
+            "/api/admin/articles/by-slug/{slug}",
+            get(admin::get_article_by_slug),
+        )
         .route("/api/admin/stats/overview", get(stats::overview))
         .route("/api/admin/stats/daily", get(stats::daily))
         .route("/api/admin/stats/articles", get(stats::articles))

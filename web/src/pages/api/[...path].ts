@@ -4,6 +4,10 @@ const API_BASE = import.meta.env.RUST_API_URL ?? 'http://127.0.0.1:8080'
 const STRIP_REQUEST = new Set(['host', 'connection', 'content-length'])
 
 export const ALL: APIRoute = async ({ params, request }) => {
+  // Only admin API calls are allowed through the same-origin proxy; public
+  // endpoints (articles, pageview ingestion) are reached server-side only.
+  if (!params.path?.startsWith('admin/')) return new Response('not found', { status: 404 })
+
   const url = new URL(request.url)
   const target = `${API_BASE}/api/${params.path ?? ''}${url.search}`
 

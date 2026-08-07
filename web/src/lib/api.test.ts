@@ -54,6 +54,12 @@ describe('api client', () => {
     expect(vi.mocked(fetch).mock.calls[0][1]?.method).toBe('POST')
   })
 
+  it('browser stats calls use the same-origin proxy', async () => {
+    vi.stubGlobal('fetch', mockFetch(200, { total_pv: 1, total_uv: 1, today_pv: 0, today_uv: 0 }))
+    await statsOverview('', { base: '' })
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('/api/admin/stats/overview')
+  })
+
   it('getPublishedBySlug maps 404 to null', async () => {
     vi.stubGlobal('fetch', mockFetch(404, { error: 'not found' }))
     expect(await getPublishedBySlug('missing')).toBeNull()

@@ -20,10 +20,10 @@ const failed = ref(false)
 onMounted(async () => {
   try {
     ;[overview.value, daily.value, articles.value, ips.value] = await Promise.all([
-      statsOverview(''),
-      statsDaily(30, ''),
-      statsArticles(''),
-      statsIps(20, ''),
+      statsOverview('', { base: '' }),
+      statsDaily(30, '', { base: '' }),
+      statsArticles('', { base: '' }),
+      statsIps(20, '', { base: '' }),
     ])
   } catch {
     failed.value = true

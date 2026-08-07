@@ -49,5 +49,7 @@ pub async fn ips(
     State(state): State<AppState>,
     Query(query): Query<LimitQuery>,
 ) -> Result<Json<Vec<IpStat>>> {
-    Ok(Json(state.pageviews.top_ips(query.limit.unwrap_or(20)).await?))
+    Ok(Json(
+        state.pageviews.top_ips(query.limit.unwrap_or(20)).await?,
+    ))
 }

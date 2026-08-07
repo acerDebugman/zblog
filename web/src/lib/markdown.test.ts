@@ -28,4 +28,9 @@ describe('renderMarkdown', () => {
     const html = await renderMarkdown('价格是 5 美元，不是 $ 符号')
     expect(html).not.toContain('class="katex"')
   })
+
+  it('strips javascript: URLs from links', async () => {
+    const html = await renderMarkdown('[click](javascript:alert(1))')
+    expect(html).not.toContain('javascript:')
+  })
 })

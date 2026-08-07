@@ -30,7 +30,9 @@ impl ArticleStatus {
         match value {
             "draft" => Ok(Self::Draft),
             "published" => Ok(Self::Published),
-            other => Err(AppError::Internal(format!("unknown article status: {other}"))),
+            other => Err(AppError::Internal(format!(
+                "unknown article status: {other}"
+            ))),
         }
     }
 }
@@ -99,7 +101,10 @@ mod tests {
     #[test]
     fn status_roundtrip() {
         assert_eq!(ArticleStatus::parse("draft").unwrap(), ArticleStatus::Draft);
-        assert_eq!(ArticleStatus::parse("published").unwrap().as_str(), "published");
+        assert_eq!(
+            ArticleStatus::parse("published").unwrap().as_str(),
+            "published"
+        );
         assert!(ArticleStatus::parse("archived").is_err());
     }
 }

@@ -130,8 +130,12 @@ mod tests {
         let (articles, repo, _dir) = setup().await;
         let a = articles.create("Stats Post", "s").await.unwrap();
 
-        repo.record(&pv("/posts/stats-post", Some(a.id), "1.1.1.1")).await.unwrap();
-        repo.record(&pv("/posts/stats-post", Some(a.id), "1.1.1.1")).await.unwrap();
+        repo.record(&pv("/posts/stats-post", Some(a.id), "1.1.1.1"))
+            .await
+            .unwrap();
+        repo.record(&pv("/posts/stats-post", Some(a.id), "1.1.1.1"))
+            .await
+            .unwrap();
         repo.record(&pv("/", None, "2.2.2.2")).await.unwrap();
 
         let overview = repo.overview().await.unwrap();

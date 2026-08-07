@@ -55,9 +55,17 @@ impl ArticleRepo {
     /// Returns `AppError::Db` on database failure.
     pub async fn create(&self, title: &str, markdown: &str) -> Result<Article> {
         let base = slugify(title);
-        let base = if base.is_empty() { "post".to_owned() } else { base };
+        let base = if base.is_empty() {
+            "post".to_owned()
+        } else {
+            base
+        };
         for attempt in 0_u32..100 {
-            let slug = if attempt == 0 { base.clone() } else { format!("{base}-{}", attempt + 1) };
+            let slug = if attempt == 0 {
+                base.clone()
+            } else {
+                format!("{base}-{}", attempt + 1)
+            };
             let result = sqlx::query_as::<_, ArticleRow>(&format!(
                 "INSERT INTO articles (title, slug, markdown) VALUES (?, ?, ?) RETURNING {COLS}"
             ))
@@ -72,7 +80,9 @@ impl ArticleRepo {
                 Err(e) => return Err(AppError::Db(e)),
             }
         }
-        Err(AppError::Internal("could not allocate a unique slug".to_owned()))
+        Err(AppError::Internal(
+            "could not allocate a unique slug".to_owned(),
+        ))
     }
 
     /// Update title, slug, and markdown of an existing article.
@@ -80,7 +90,13 @@ impl ArticleRepo {
     /// # Errors
     /// `NotFound` when the id does not exist; `BadRequest` when the slug is
     /// empty or already used by another article; `AppError::Db` otherwise.
-    pub async fn update(&self, id: i64, title: &str, slug: &str, markdown: &str) -> Result<Article> {
+    pub async fn update(
+        &self,
+        id: i64,
+        title: &str,
+        slug: &str,
+        markdown: &str,
+    ) -> Result<Article> {
         if slug.is_empty() {
             return Err(AppError::BadRequest("slug must not be empty".to_owned()));
         }
@@ -128,12 +144,11 @@ impl ArticleRepo {
     /// # Errors
     /// Returns `AppError::Db` on database failure.
     pub async fn find_by_id(&self, id: i64) -> Result<Option<Article>> {
-        let row = sqlx::query_as::<_, ArticleRow>(&format!(
-            "SELECT {COLS} FROM articles WHERE id = ?"
-        ))
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row =
+            sqlx::query_as::<_, ArticleRow>(&format!("SELECT {COLS} FROM articles WHERE id = ?"))
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?;
         row.map(TryInto::try_into).transpose()
     }
 
@@ -142,12 +157,11 @@ impl ArticleRepo {
     /// # Errors
     /// Returns `AppError::Db` on database failure.
     pub async fn find_by_slug(&self, slug: &str) -> Result<Option<Article>> {
-        let row = sqlx::query_as::<_, ArticleRow>(&format!(
-            "SELECT {COLS} FROM articles WHERE slug = ?"
-        ))
-        .bind(slug)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row =
+            sqlx::query_as::<_, ArticleRow>(&format!("SELECT {COLS} FROM articles WHERE slug = ?"))
+                .bind(slug)
+                .fetch_optional(&self.pool)
+                .await?;
         row.map(TryInto::try_into).transpose()
     }
 
@@ -224,7 +238,9 @@ mod tests {
         let (repo, _dir) = repo().await;
         let draft = repo.create("Alpha Post", "a").await.unwrap();
         let published = repo.create("Beta Post", "b").await.unwrap();
-        repo.set_status(published.id, ArticleStatus::Published).await.unwrap();
+        repo.set_status(published.id, ArticleStatus::Published)
+            .await
+            .unwrap();
 
         let public = repo.list_published().await.unwrap();
         assert_eq!(public.len(), 1);
@@ -240,10 +256,16 @@ mod tests {
     async fn publish_keeps_first_published_at_after_unpublish() {
         let (repo, _dir) = repo().await;
         let a = repo.create("Gamma Post", "g").await.unwrap();
-        let p1 = repo.set_status(a.id, ArticleStatus::Published).await.unwrap();
+        let p1 = repo
+            .set_status(a.id, ArticleStatus::Published)
+            .await
+            .unwrap();
         let back = repo.set_status(a.id, ArticleStatus::Draft).await.unwrap();
         assert_eq!(back.status, ArticleStatus::Draft);
-        let p2 = repo.set_status(a.id, ArticleStatus::Published).await.unwrap();
+        let p2 = repo
+            .set_status(a.id, ArticleStatus::Published)
+            .await
+            .unwrap();
         assert_eq!(p1.published_at, p2.published_at);
     }
 
@@ -251,13 +273,19 @@ mod tests {
     async fn update_and_delete() {
         let (repo, _dir) = repo().await;
         let a = repo.create("Delta Post", "old").await.unwrap();
-        let updated = repo.update(a.id, "Delta Renamed", "delta-renamed", "new").await.unwrap();
+        let updated = repo
+            .update(a.id, "Delta Renamed", "delta-renamed", "new")
+            .await
+            .unwrap();
         assert_eq!(updated.markdown, "new");
         assert_eq!(updated.slug, "delta-renamed");
         assert!(repo.update(a.id, "X", "", "y").await.is_err()); // empty slug rejected
 
         let b = repo.create("Echo Post", "e").await.unwrap();
-        assert!(repo.update(b.id, "Echo Post", "delta-renamed", "e").await.is_err()); // conflict
+        assert!(repo
+            .update(b.id, "Echo Post", "delta-renamed", "e")
+            .await
+            .is_err()); // conflict
 
         assert_eq!(repo.delete(a.id).await.unwrap(), 1);
         assert!(repo.find_by_id(a.id).await.unwrap().is_none());

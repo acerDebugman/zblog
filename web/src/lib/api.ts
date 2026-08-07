@@ -147,20 +147,20 @@ export function deleteArticle(id: number, opts?: Opts): Promise<void> {
   return requestVoid(`/api/admin/articles/${id}`, { method: 'DELETE' }, opts)
 }
 
-export function statsOverview(cookie: string): Promise<StatsOverview> {
-  return request('/api/admin/stats/overview', statsOverviewSchema, undefined, { cookie })
+export function statsOverview(cookie: string, opts?: Opts): Promise<StatsOverview> {
+  return request('/api/admin/stats/overview', statsOverviewSchema, undefined, { ...opts, cookie })
 }
 
-export function statsDaily(days: number, cookie: string): Promise<DailyStat[]> {
-  return request(`/api/admin/stats/daily?days=${days}`, z.array(dailyStatSchema), undefined, { cookie })
+export function statsDaily(days: number, cookie: string, opts?: Opts): Promise<DailyStat[]> {
+  return request(`/api/admin/stats/daily?days=${days}`, z.array(dailyStatSchema), undefined, { ...opts, cookie })
 }
 
-export function statsArticles(cookie: string): Promise<ArticleStat[]> {
-  return request('/api/admin/stats/articles', z.array(articleStatSchema), undefined, { cookie })
+export function statsArticles(cookie: string, opts?: Opts): Promise<ArticleStat[]> {
+  return request('/api/admin/stats/articles', z.array(articleStatSchema), undefined, { ...opts, cookie })
 }
 
-export function statsIps(limit: number, cookie: string): Promise<IpStat[]> {
-  return request(`/api/admin/stats/ips?limit=${limit}`, z.array(ipStatSchema), undefined, { cookie })
+export function statsIps(limit: number, cookie: string, opts?: Opts): Promise<IpStat[]> {
+  return request(`/api/admin/stats/ips?limit=${limit}`, z.array(ipStatSchema), undefined, { ...opts, cookie })
 }
 
 /** Record a pageview server-side; analytics failures never break page rendering. */
