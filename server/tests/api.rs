@@ -138,3 +138,147 @@ async fn public_articles_list_and_detail() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
 }
+
+async fn login(app: &TestApp) {
+    let res = app
+        .client
+        .post(format!("{}/api/admin/login", app.base_url))
+        .json(&serde_json::json!({ "password": "test-password" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn auth_flow() {
+    let app = spawn_app().await;
+
+    // negative: admin endpoints reject anonymous callers
+    let res = app.client.get(format!("{}/api/admin/articles", app.base_url)).send().await.unwrap();
+    assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+
+    // negative: wrong password
+    let res = app
+        .client
+        .post(format!("{}/api/admin/login", app.base_url))
+        .json(&serde_json::json!({ "password": "wrong" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+
+    login(&app).await;
+    let res = app.client.get(format!("{}/api/admin/me", app.base_url)).send().await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    let res = app.client.post(format!("{}/api/admin/logout", app.base_url)).send().await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let res = app.client.get(format!("{}/api/admin/me", app.base_url)).send().await.unwrap();
+    assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn admin_article_crud_and_preview_lookup() {
+    let app = spawn_app().await;
+    login(&app).await;
+
+    // create (empty title rejected first — negative validation)
+    let res = app
+        .client
+        .post(format!("{}/api/admin/articles", app.base_url))
+        .json(&serde_json::json!({ "title": "  ", "markdown": "x" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+
+    let res = app
+        .client
+        .post(format!("{}/api/admin/articles", app.base_url))
+        .json(&serde_json::json!({ "title": "Draft One", "markdown": "# draft body" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::CREATED);
+    let created: serde_json::Value = res.json().await.unwrap();
+    let id = created["id"].as_i64().unwrap();
+    assert_eq!(created["status"], "draft");
+    assert_eq!(created["slug"], "draft-one");
+
+    // draft visible through admin by-slug (Draft Preview), not publicly
+    let res = app
+        .client
+        .get(format!("{}/api/admin/articles/by-slug/draft-one", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let res = app
+        .client
+        .get(format!("{}/api/articles/draft-one", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+
+    // update
+    let res = app
+        .client
+        .put(format!("{}/api/admin/articles/{id}", app.base_url))
+        .json(&serde_json::json!({ "title": "Draft One v2", "slug": "draft-one", "markdown": "# v2" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let updated: serde_json::Value = res.json().await.unwrap();
+    assert_eq!(updated["title"], "Draft One v2");
+    assert_eq!(updated["markdown"], "# v2");
+
+    // publish → public; unpublish → hidden again
+    let res = app
+        .client
+        .post(format!("{}/api/admin/articles/{id}/publish", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let published: serde_json::Value = res.json().await.unwrap();
+    assert_eq!(published["status"], "published");
+    assert!(published["published_at"].is_string());
+    let res = app.client.get(format!("{}/api/articles", app.base_url)).send().await.unwrap();
+    let list: Vec<serde_json::Value> = res.json().await.unwrap();
+    assert_eq!(list.len(), 1);
+
+    let res = app
+        .client
+        .post(format!("{}/api/admin/articles/{id}/unpublish", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let res = app.client.get(format!("{}/api/articles", app.base_url)).send().await.unwrap();
+    let list: Vec<serde_json::Value> = res.json().await.unwrap();
+    assert_eq!(list.len(), 0);
+
+    // admin list still contains the draft
+    let res = app.client.get(format!("{}/api/admin/articles", app.base_url)).send().await.unwrap();
+    let all: Vec<serde_json::Value> = res.json().await.unwrap();
+    assert_eq!(all.len(), 1);
+
+    // delete
+    let res = app
+        .client
+        .delete(format!("{}/api/admin/articles/{id}", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NO_CONTENT);
+    let res = app
+        .client
+        .get(format!("{}/api/admin/articles/{id}", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+}

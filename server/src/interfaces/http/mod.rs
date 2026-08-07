@@ -1,11 +1,16 @@
 //! HTTP interface: router, state, and middleware.
 
+pub mod admin;
 pub mod articles;
 pub mod dto;
+pub mod middleware;
 
 use std::sync::Arc;
 
-use axum::{routing::get, Json, Router};
+use axum::{
+    routing::{get, post},
+    Json, Router,
+};
 use axum_extra::extract::cookie::Key;
 use sqlx::SqlitePool;
 
@@ -60,11 +65,27 @@ impl axum::extract::FromRef<AppState> for Key {
 
 /// Build the full HTTP router.
 pub fn build_router(state: AppState) -> Router {
-    Router::new()
+    let public = Router::new()
         .route("/api/health", get(health))
         .route("/api/articles", get(articles::list_published))
         .route("/api/articles/{slug}", get(articles::get_by_slug))
-        .with_state(state)
+        .route("/api/admin/login", post(admin::login));
+    let admin = Router::new()
+        .route("/api/admin/logout", post(admin::logout))
+        .route("/api/admin/me", get(admin::me))
+        .route("/api/admin/articles", get(admin::list_articles).post(admin::create_article))
+        .route(
+            "/api/admin/articles/{id}",
+            get(admin::get_article).put(admin::update_article).delete(admin::delete_article),
+        )
+        .route("/api/admin/articles/{id}/publish", post(admin::publish_article))
+        .route("/api/admin/articles/{id}/unpublish", post(admin::unpublish_article))
+        .route("/api/admin/articles/by-slug/{slug}", get(admin::get_article_by_slug))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            middleware::require_auth,
+        ));
+    Router::new().merge(public).merge(admin).with_state(state)
 }
 
 async fn health() -> Json<serde_json::Value> {
