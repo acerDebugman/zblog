@@ -1,0 +1,31 @@
+---
+import 'katex/dist/katex.min.css'
+import '../styles/global.css'
+
+type Props = { title: string }
+const { title } = Astro.props
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · zblog</title>
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="site-header">
+        <a class="site-title" href="/">zblog</a>
+        <nav class="site-nav">
+          <a href="/">首页</a>
+          <a href="/about">关于</a>
+        </nav>
+      </header>
+      <main>
+        <slot />
+      </main>
+      <footer class="site-footer">用 ❤ 与 Rust 构建 · {new Date().getFullYear()}</footer>
+    </div>
+  </body>
+</html>
