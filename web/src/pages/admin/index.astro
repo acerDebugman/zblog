@@ -1,0 +1,37 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { adminListArticles } from '../../lib/api'
+
+const cookie = Astro.request.headers.get('cookie') ?? ''
+const articles = await adminListArticles(cookie)
+---
+
+<Layout title="文章管理">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px">
+    <h1 style="font-size: 22px; margin: 0">文章管理</h1>
+    <nav>
+      <a class="btn btn-secondary" href="/admin/stats" style="margin-right: 10px">访问统计</a>
+      <a class="btn" href="/admin/new">新建文章</a>
+    </nav>
+  </div>
+
+  <div class="card">
+    {articles.length === 0 && <p class="muted">还没有文章，点击「新建文章」开始写作。</p>}
+    {
+      articles.map((article) => (
+        <div class="post-item">
+          <span class="post-date">{article.updated_at.slice(0, 10)}</span>
+          <a href={`/admin/edit/${article.id}`} style="flex: 1">{article.title}</a>
+          {article.status === 'draft' ? (
+            <>
+              <span class="muted" style="font-size: 13px">草稿</span>
+              <a href={`/preview/${article.slug}`} style="font-size: 13px">预览</a>
+            </>
+          ) : (
+            <a href={`/posts/${article.slug}`} style="font-size: 13px">已发布</a>
+          )}
+        </div>
+      ))
+    }
+  </div>
+</Layout>
