@@ -1,0 +1,27 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import { getPublishedBySlug, recordPageview } from '../../lib/api'
+import { renderMarkdown } from '../../lib/markdown'
+
+const { slug } = Astro.params
+const article = slug === undefined ? null : await getPublishedBySlug(slug)
+if (article === null) return Astro.redirect('/404')
+
+const html = await renderMarkdown(article.markdown)
+
+await recordPageview({
+  path: Astro.url.pathname,
+  article_id: article.id,
+  ip: Astro.clientAddress,
+  user_agent: Astro.request.headers.get('user-agent') ?? '',
+  referer: Astro.request.headers.get('referer') ?? '',
+})
+---
+
+<Layout title={article.title}>
+  <article class="card">
+    <h1 style="margin-top: 0">{article.title}</h1>
+    <p class="muted" style="font-size: 14px">发布于 {article.published_at?.slice(0, 10)}</p>
+    <div class="article-body" set:html={html} />
+  </article>
+</Layout>
