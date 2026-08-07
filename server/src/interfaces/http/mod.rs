@@ -1,5 +1,6 @@
 //! HTTP interface: router, state, and middleware.
 
+pub mod articles;
 pub mod dto;
 
 use std::sync::Arc;
@@ -61,6 +62,8 @@ impl axum::extract::FromRef<AppState> for Key {
 pub fn build_router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health))
+        .route("/api/articles", get(articles::list_published))
+        .route("/api/articles/{slug}", get(articles::get_by_slug))
         .with_state(state)
 }
 

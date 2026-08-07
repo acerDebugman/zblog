@@ -13,6 +13,7 @@ use zblog_server::interfaces::http::{build_router, AppState};
 struct TestApp {
     base_url: String,
     client: Client,
+    db_url: String,
     _dir: TempDir,
 }
 
@@ -29,7 +30,8 @@ async fn spawn_app() -> TestApp {
         password_hash,
         session_secret: "test-secret".to_owned(),
     };
-    let pool = db::create_pool(&config.database_url).await.unwrap();
+    let db_url = config.database_url.clone();
+    let pool = db::create_pool(&db_url).await.unwrap();
     let state = AppState::new(pool, config);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -38,6 +40,7 @@ async fn spawn_app() -> TestApp {
     TestApp {
         base_url: format!("http://{addr}"),
         client,
+        db_url,
         _dir: dir,
     }
 }
@@ -70,4 +73,68 @@ async fn migrations_create_tables() {
             .unwrap();
     assert!(names.contains(&"articles".to_owned()));
     assert!(names.contains(&"pageviews".to_owned()));
+}
+
+async fn seed(
+    pool_url: &str,
+    title: &str,
+    markdown: &str,
+    publish: bool,
+) -> zblog_server::domain::article::Article {
+    let pool = db::create_pool(pool_url).await.unwrap();
+    let repo = zblog_server::infrastructure::article_repo::ArticleRepo::new(pool);
+    let article = repo.create(title, markdown).await.unwrap();
+    if publish {
+        repo.set_status(article.id, zblog_server::domain::article::ArticleStatus::Published)
+            .await
+            .unwrap()
+    } else {
+        article
+    }
+}
+
+#[tokio::test]
+async fn public_articles_list_and_detail() {
+    let app = spawn_app().await;
+    seed(&app.db_url, "Alpha Notes", "# alpha body", true).await;
+    seed(&app.db_url, "Beta Draft", "# beta body", false).await;
+
+    let res = app
+        .client
+        .get(format!("{}/api/articles", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let list: Vec<serde_json::Value> = res.json().await.unwrap();
+    assert_eq!(list.len(), 1); // negative: draft excluded
+    assert_eq!(list[0]["title"], "Alpha Notes");
+    assert_eq!(list[0]["status"], "published");
+    assert!(list[0]["published_at"].is_string());
+
+    let res = app
+        .client
+        .get(format!("{}/api/articles/alpha-notes", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let detail: serde_json::Value = res.json().await.unwrap();
+    assert_eq!(detail["markdown"], "# alpha body");
+
+    // negative: draft slug and unknown slug are both 404 for Visitors
+    let res = app
+        .client
+        .get(format!("{}/api/articles/beta-draft", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    let res = app
+        .client
+        .get(format!("{}/api/articles/no-such-slug", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
 }
