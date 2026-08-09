@@ -1,0 +1,9 @@
+---
+import Layout from '../../layouts/Layout.astro'
+import StatsDashboard from '../../components/StatsDashboard.vue'
+---
+
+<Layout title="访问统计">
+  <h1 style="font-size: 22px">访问统计</h1>
+  <StatsDashboard client:load />
+</Layout>
