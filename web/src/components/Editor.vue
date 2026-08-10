@@ -35,19 +35,19 @@ async function save(): Promise<boolean> {
   busy.value = true
   try {
     if (currentId.value === null) {
-      const created = await adminCreateArticle(
-        { title: title.value, markdown: markdown.value },
-        { base: '' },
-      )
+      const created = await adminCreateArticle({
+        title: title.value,
+        markdown: markdown.value,
+      })
       currentId.value = created.id
       slug.value = created.slug
       history.replaceState(null, '', `/admin/edit/${created.id}`)
     } else {
-      await adminUpdateArticle(
-        currentId.value,
-        { title: title.value, slug: slug.value, markdown: markdown.value },
-        { base: '' },
-      )
+      await adminUpdateArticle(currentId.value, {
+        title: title.value,
+        slug: slug.value,
+        markdown: markdown.value,
+      })
     }
     return true
   } catch (e) {
@@ -60,19 +60,19 @@ async function save(): Promise<boolean> {
 
 async function publish() {
   if (!(await save()) || currentId.value === null) return
-  const updated = await publishArticle(currentId.value, { base: '' })
+  const updated = await publishArticle(currentId.value)
   status.value = updated.status
 }
 
 async function unpublish() {
   if (!(await save()) || currentId.value === null) return
-  const updated = await unpublishArticle(currentId.value, { base: '' })
+  const updated = await unpublishArticle(currentId.value)
   status.value = updated.status
 }
 
 async function remove() {
   if (currentId.value === null || !window.confirm('确认删除这篇文章？')) return
-  await deleteArticle(currentId.value, { base: '' })
+  await deleteArticle(currentId.value)
   window.location.assign('/admin')
 }
 </script>

@@ -10,7 +10,7 @@ async function submit() {
   error.value = ''
   submitting.value = true
   try {
-    await login(password.value, { base: '' })
+    await login(password.value)
     window.location.assign('/admin')
   } catch {
     error.value = '密码错误，请重试。'

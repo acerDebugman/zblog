@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import {
+  redirectOnUnauthorized,
   statsArticles,
   statsDaily,
   statsIps,
@@ -20,12 +21,13 @@ const failed = ref(false)
 onMounted(async () => {
   try {
     ;[overview.value, daily.value, articles.value, ips.value] = await Promise.all([
-      statsOverview('', { base: '' }),
-      statsDaily(30, '', { base: '' }),
-      statsArticles('', { base: '' }),
-      statsIps(20, '', { base: '' }),
+      statsOverview(),
+      statsDaily(30),
+      statsArticles(),
+      statsIps(20),
     ])
-  } catch {
+  } catch (e) {
+    if (redirectOnUnauthorized(e)) return
     failed.value = true
   }
 })

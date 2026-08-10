@@ -5,6 +5,8 @@ import {
   deleteArticle,
   getPublishedBySlug,
   listPublished,
+  login,
+  redirectOnUnauthorized,
   statsOverview,
   type Article,
 } from './api'
@@ -39,25 +41,19 @@ afterEach(() => {
 })
 
 describe('api client', () => {
-  it('listPublished hits the Rust base URL and parses', async () => {
+  it('listPublished uses the same-origin relative path and parses', async () => {
     vi.stubGlobal('fetch', mockFetch(200, [article]))
     const list = await listPublished()
     expect(list).toEqual([article])
-    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('http://127.0.0.1:8080/api/articles')
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('/api/articles')
   })
 
-  it('browser callers use the same-origin proxy via base ""', async () => {
+  it('adminCreateArticle posts json to the relative admin path', async () => {
     vi.stubGlobal('fetch', mockFetch(201, article))
-    const created = await adminCreateArticle({ title: 'T', markdown: 'm' }, { base: '' })
+    const created = await adminCreateArticle({ title: 'T', markdown: 'm' })
     expect(created.slug).toBe('hello-world')
     expect(vi.mocked(fetch).mock.calls[0][0]).toBe('/api/admin/articles')
     expect(vi.mocked(fetch).mock.calls[0][1]?.method).toBe('POST')
-  })
-
-  it('browser stats calls use the same-origin proxy', async () => {
-    vi.stubGlobal('fetch', mockFetch(200, { total_pv: 1, total_uv: 1, today_pv: 0, today_uv: 0 }))
-    await statsOverview('', { base: '' })
-    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('/api/admin/stats/overview')
   })
 
   it('getPublishedBySlug maps 404 to null', async () => {
@@ -75,23 +71,32 @@ describe('api client', () => {
     await expect(listPublished()).rejects.toThrow()
   })
 
-  it('forwards the session cookie for admin SSR calls', async () => {
-    vi.stubGlobal('fetch', mockFetch(200, { total_pv: 3, total_uv: 2, today_pv: 1, today_uv: 1 }))
-    const overview = await statsOverview('zblog_auth=signed')
-    expect(overview.total_pv).toBe(3)
-    const headers = vi.mocked(fetch).mock.calls[0][1]?.headers as Headers
-    expect(headers.get('cookie')).toBe('zblog_auth=signed')
-  })
-
   it('deleteArticle resolves on 204 without parsing a body', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
-    await expect(deleteArticle(1, { base: '' })).resolves.toBeUndefined()
+    await expect(deleteArticle(1)).resolves.toBeUndefined()
   })
 
   it('login failure surfaces as ApiError 401', async () => {
     vi.stubGlobal('fetch', mockFetch(401, { error: 'unauthorized' }))
-    const { login } = await import('./api')
-    await expect(login('wrong', { base: '' })).rejects.toMatchObject({ status: 401 })
-    await expect(login('wrong', { base: '' })).rejects.toBeInstanceOf(ApiError)
+    await expect(login('wrong')).rejects.toBeInstanceOf(ApiError)
+    await expect(login('wrong')).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('statsOverview hits the relative stats path', async () => {
+    vi.stubGlobal('fetch', mockFetch(200, { total_pv: 1, total_uv: 1, today_pv: 0, today_uv: 0 }))
+    await statsOverview()
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe('/api/admin/stats/overview')
+  })
+})
+
+describe('redirectOnUnauthorized', () => {
+  it('redirects on ApiError 401 and not on other errors', () => {
+    const assign = vi.fn()
+    vi.stubGlobal('window', { ...window, location: { ...window.location, assign } })
+    expect(redirectOnUnauthorized(new ApiError(401, 'unauthorized'))).toBe(true)
+    expect(assign).toHaveBeenCalledWith('/admin/login')
+    expect(redirectOnUnauthorized(new ApiError(500, 'x'))).toBe(false)
+    expect(redirectOnUnauthorized(new Error('x'))).toBe(false)
+    vi.unstubAllGlobals()
   })
 })
