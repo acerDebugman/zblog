@@ -29,12 +29,16 @@ pub async fn fallback(uri: Uri) -> Response {
 /// Order: exact file → `{path}/index.html` → longest ancestor `index.html`
 /// → `404.html` with status 404. Unmatched `/api/*` paths return the JSON
 /// `AppError::NotFound` body instead of HTML. The empty path (`/`) maps to
-/// `index.html`.
+/// `index.html`. Paths containing `..` segments are rejected with the 404
+/// response before any lookup.
 #[must_use]
 pub fn serve_path_with<T: RustEmbed>(path: &str) -> Response {
     let path = path.trim_matches('/');
     if path == "api" || path.starts_with("api/") {
         return crate::error::AppError::NotFound.into_response();
+    }
+    if path.split('/').any(|seg| seg == "..") {
+        return not_found::<T>();
     }
     let path = if path.is_empty() { "index.html" } else { path };
     if let Some(response) = embedded::<T>(path) {
@@ -128,6 +132,12 @@ mod tests {
         let response = serve_path_with::<TestAssets>("no-such-page");
         assert_eq!(response.status(), 404);
         assert_eq!(body_string(response).await, "<h1>not found</h1>");
+    }
+
+    #[tokio::test]
+    async fn parent_directory_segments_get_404() {
+        let response = serve_path_with::<TestAssets>("../../etc/passwd");
+        assert_eq!(response.status(), 404);
     }
 
     #[tokio::test]
