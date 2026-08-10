@@ -35,7 +35,14 @@ async fn spawn_app() -> TestApp {
     let state = AppState::new(pool, config);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
-    tokio::spawn(async move { axum::serve(listener, build_router(state)).await.unwrap() });
+    tokio::spawn(async move {
+        axum::serve(
+            listener,
+            build_router(state).into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await
+        .unwrap();
+    });
     let client = Client::builder().cookie_store(true).build().unwrap();
     TestApp {
         base_url: format!("http://{addr}"),
@@ -316,21 +323,20 @@ async fn pageview_ingestion_and_stats() {
     let res = app
         .client
         .post(format!("{}/api/pageviews", app.base_url))
-        .json(&serde_json::json!({ "path": "", "ip": "1.1.1.1" }))
+        .json(&serde_json::json!({ "path": "" }))
         .send()
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::BAD_REQUEST);
 
-    for ip in ["1.1.1.1", "1.1.1.1", "2.2.2.2"] {
+    for _ in 0..3 {
         let res = app
             .client
             .post(format!("{}/api/pageviews", app.base_url))
+            .header("user-agent", "curl-test")
             .json(&serde_json::json!({
                 "path": "/posts/watched-post",
-                "article_id": article.id,
-                "ip": ip,
-                "user_agent": "curl"
+                "article_id": article.id
             }))
             .send()
             .await
@@ -357,7 +363,7 @@ async fn pageview_ingestion_and_stats() {
     assert_eq!(res.status(), StatusCode::OK);
     let overview: serde_json::Value = res.json().await.unwrap();
     assert_eq!(overview["total_pv"], 3);
-    assert_eq!(overview["total_uv"], 2);
+    assert_eq!(overview["total_uv"], 1); // all from the loopback peer
     assert_eq!(overview["today_pv"], 3);
 
     let res = app
@@ -383,12 +389,43 @@ async fn pageview_ingestion_and_stats() {
 
     let res = app
         .client
-        .get(format!("{}/api/admin/stats/ips?limit=1", app.base_url))
+        .get(format!("{}/api/admin/stats/ips?limit=5", app.base_url))
         .send()
         .await
         .unwrap();
     let ips: Vec<serde_json::Value> = res.json().await.unwrap();
     assert_eq!(ips.len(), 1);
-    assert_eq!(ips[0]["ip"], "1.1.1.1");
-    assert_eq!(ips[0]["count"], 2);
+    assert_eq!(ips[0]["ip"], "127.0.0.1");
+    assert_eq!(ips[0]["count"], 3);
+}
+
+#[tokio::test]
+async fn static_site_and_api_404_shapes() {
+    let app = spawn_app().await;
+
+    // home page shell (placeholder or real build) is served as HTML
+    let res = app.client.get(format!("{}/", app.base_url)).send().await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let content_type = res.headers()["content-type"].to_str().unwrap().to_owned();
+    assert!(content_type.contains("text/html"));
+
+    // unknown API path → JSON 404, not HTML
+    let res = app
+        .client
+        .get(format!("{}/api/definitely-not-a-route", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    let body: serde_json::Value = res.json().await.unwrap();
+    assert_eq!(body["error"], "not found");
+
+    // unknown page path → 404 status
+    let res = app
+        .client
+        .get(format!("{}/definitely/not/a/page", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
 }

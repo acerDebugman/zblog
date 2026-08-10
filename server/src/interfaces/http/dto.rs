@@ -29,19 +29,13 @@ pub struct UpdateArticleRequest {
     pub markdown: String,
 }
 
-/// Pageview ingestion payload (sent by the Astro SSR layer).
+/// Pageview ingestion payload (sent by the visitor's browser).
 #[derive(Debug, Deserialize)]
 pub struct RecordPageviewRequest {
     /// Request path, e.g. `/posts/hello`.
     pub path: String,
     /// Article id when the page is an article.
     pub article_id: Option<i64>,
-    /// Visitor IP as seen by the Astro server.
-    pub ip: String,
-    /// Visitor user agent.
-    pub user_agent: Option<String>,
-    /// Visitor referer.
-    pub referer: Option<String>,
 }
 
 /// Query for the daily stats endpoint.

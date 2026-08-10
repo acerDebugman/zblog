@@ -1,14 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro'
-import { recordPageview } from '../lib/api'
-
-await recordPageview({
-  path: '/about',
-  article_id: null,
-  ip: Astro.clientAddress,
-  user_agent: Astro.request.headers.get('user-agent') ?? '',
-  referer: Astro.request.headers.get('referer') ?? '',
-})
+import PageviewTracker from '../components/PageviewTracker.vue'
 ---
 
 <Layout title="关于">
@@ -17,4 +9,5 @@ await recordPageview({
     <p>这里写一段自我介绍：你是谁，在做什么，为什么写这个博客。</p>
     <p>也可以放上你的联系方式、GitHub、兴趣爱好。随时回到 <a href="/">首页</a> 看看文章。</p>
   </article>
+  <PageviewTracker client:load />
 </Layout>
