@@ -398,3 +398,34 @@ async fn pageview_ingestion_and_stats() {
     assert_eq!(ips[0]["ip"], "127.0.0.1");
     assert_eq!(ips[0]["count"], 3);
 }
+
+#[tokio::test]
+async fn static_site_and_api_404_shapes() {
+    let app = spawn_app().await;
+
+    // home page shell (placeholder or real build) is served as HTML
+    let res = app.client.get(format!("{}/", app.base_url)).send().await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let content_type = res.headers()["content-type"].to_str().unwrap().to_owned();
+    assert!(content_type.contains("text/html"));
+
+    // unknown API path → JSON 404, not HTML
+    let res = app
+        .client
+        .get(format!("{}/api/definitely-not-a-route", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    let body: serde_json::Value = res.json().await.unwrap();
+    assert_eq!(body["error"], "not found");
+
+    // unknown page path → 404 status
+    let res = app
+        .client
+        .get(format!("{}/definitely/not/a/page", app.base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+}

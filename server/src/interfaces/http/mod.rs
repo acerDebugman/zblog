@@ -5,6 +5,7 @@ pub mod articles;
 pub mod dto;
 pub mod middleware;
 pub mod pageviews;
+pub mod site;
 pub mod stats;
 
 use std::sync::Arc;
@@ -106,7 +107,8 @@ pub fn build_router(state: AppState) -> Router {
             state.clone(),
             middleware::require_auth,
         ));
-    Router::new().merge(public).merge(admin).with_state(state)
+    let app = Router::new().merge(public).merge(admin);
+    site::routes(app).with_state(state)
 }
 
 async fn health() -> Json<serde_json::Value> {
