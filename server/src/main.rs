@@ -16,8 +16,11 @@ async fn main() -> Result<()> {
         .await
         .map_err(|e| AppError::Internal(format!("bind {bind_addr}: {e}")))?;
     tracing::info!("listening on {bind_addr}");
-    axum::serve(listener, build_router(state))
-        .await
-        .map_err(|e| AppError::Internal(format!("server error: {e}")))?;
+    axum::serve(
+        listener,
+        build_router(state).into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await
+    .map_err(|e| AppError::Internal(format!("server error: {e}")))?;
     Ok(())
 }
