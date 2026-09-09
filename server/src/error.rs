@@ -21,6 +21,10 @@ pub enum AppError {
     /// Client sent invalid data.
     #[error("bad request: {0}")]
     BadRequest(String),
+    /// Login locked out after too many failed attempts; carries the
+    /// remaining lockout seconds.
+    #[error("too_many_attempts")]
+    TooManyAttempts(u64),
     /// Unexpected internal failure.
     #[error("internal error: {0}")]
     Internal(String),
@@ -35,12 +39,15 @@ impl IntoResponse for AppError {
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
+            Self::TooManyAttempts(_) => StatusCode::TOO_MANY_REQUESTS,
             Self::Db(_) | Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
-        (
-            status,
-            Json(serde_json::json!({ "error": self.to_string() })),
-        )
-            .into_response()
+        let body = match &self {
+            Self::TooManyAttempts(secs) => {
+                serde_json::json!({ "error": self.to_string(), "retry_after": secs })
+            }
+            _ => serde_json::json!({ "error": self.to_string() }),
+        };
+        (status, Json(body)).into_response()
     }
 }

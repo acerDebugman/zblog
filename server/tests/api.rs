@@ -216,6 +216,37 @@ async fn auth_flow() {
     assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
 }
 
+async fn try_login(app: &TestApp, password: &str) -> reqwest::Response {
+    app.client
+        .post(format!("{}/api/admin/login", app.base_url))
+        .json(&serde_json::json!({ "password": password }))
+        .send()
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn login_lockout_after_three_wrong_passwords() {
+    let app = spawn_app().await;
+
+    for _ in 0..3 {
+        let res = try_login(&app, "wrong").await;
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    // locked: even the correct password is refused, with retry_after seconds
+    let res = try_login(&app, "test-password").await;
+    assert_eq!(res.status(), StatusCode::TOO_MANY_REQUESTS);
+    let body: serde_json::Value = res.json().await.unwrap();
+    assert_eq!(body["error"], "too_many_attempts");
+    let retry_after = body["retry_after"].as_u64().unwrap();
+    assert!((290..=300).contains(&retry_after));
+
+    // repeated attempts during the lockout stay locked without resetting it
+    let res = try_login(&app, "wrong").await;
+    assert_eq!(res.status(), StatusCode::TOO_MANY_REQUESTS);
+}
+
 #[tokio::test]
 async fn admin_article_crud_and_preview_lookup() {
     let app = spawn_app().await;

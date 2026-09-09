@@ -1,8 +1,10 @@
 //! Admin endpoints (Author-facing, behind the session cookie).
 
+use std::net::SocketAddr;
+
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use axum::{
-    extract::{Path, State},
+    extract::{ConnectInfo, Path, State},
     http::StatusCode,
     Json,
 };
@@ -16,22 +18,34 @@ use crate::interfaces::http::AppState;
 
 /// `POST /api/admin/login` — verify password, issue the session cookie.
 ///
+/// Login is throttled per source IP: after 3 consecutive wrong passwords the
+/// IP is locked out for 5 minutes, and every attempt during the lockout
+/// (even with the correct password) is refused without extending the timer.
+///
 /// # Errors
-/// Returns `AppError::Unauthorized` on wrong password, `AppError::Internal`
-/// when the configured password hash is not a valid PHC string.
+/// Returns `AppError::TooManyAttempts` during a lockout,
+/// `AppError::Unauthorized` on wrong password, `AppError::Internal` when the
+/// configured password hash is not a valid PHC string.
 pub async fn login(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     jar: PrivateCookieJar,
     Json(body): Json<LoginRequest>,
 ) -> Result<(PrivateCookieJar, Json<serde_json::Value>)> {
+    let ip = addr.ip();
+    if let Some(secs) = state.login_throttle.locked_secs(ip) {
+        return Err(AppError::TooManyAttempts(secs));
+    }
     let parsed = PasswordHash::new(&state.config.password_hash)
         .map_err(|e| AppError::Internal(format!("invalid ZBLOG_PASSWORD_HASH: {e}")))?;
     let ok = Argon2::default()
         .verify_password(body.password.as_bytes(), &parsed)
         .is_ok();
     if !ok {
+        state.login_throttle.record_failure(ip);
         return Err(AppError::Unauthorized);
     }
+    state.login_throttle.record_success(ip);
     let cookie = Cookie::build((AUTH_COOKIE, "authenticated"))
         .path("/")
         .http_only(true)

@@ -48,6 +48,18 @@ export class ApiError extends Error {
   }
 }
 
+/** Thrown by `login` when the server locks the client out (HTTP 429). */
+export class LoginLockedError extends Error {
+  /** Seconds remaining until login is allowed again. */
+  readonly retryAfter: number
+
+  constructor(retryAfter: number) {
+    super('too many login attempts')
+    this.name = 'LoginLockedError'
+    this.retryAfter = retryAfter
+  }
+}
+
 /** Redirect to the admin login page on a 401; returns whether it redirected. */
 export function redirectOnUnauthorized(error: unknown): boolean {
   if (error instanceof ApiError && error.status === 401) {
@@ -92,7 +104,21 @@ export function getPublishedBySlug(slug: string): Promise<Article | null> {
 }
 
 export async function login(password: string): Promise<void> {
-  await request('/api/admin/login', z.object({ ok: z.boolean() }), jsonPost({ password }))
+  try {
+    await request('/api/admin/login', z.object({ ok: z.boolean() }), jsonPost({ password }))
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 429) {
+      let retryAfter = 300
+      try {
+        const parsed = z.object({ retry_after: z.number() }).safeParse(JSON.parse(error.message))
+        if (parsed.success) retryAfter = parsed.data.retry_after
+      } catch {
+        // non-JSON 429 body: fall back to the default lockout length
+      }
+      throw new LoginLockedError(retryAfter)
+    }
+    throw error
+  }
 }
 
 export async function logout(): Promise<void> {

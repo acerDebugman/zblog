@@ -23,6 +23,10 @@ An Article whose status is `published` — visible to Visitors. Editing a publis
 An anonymous reader of the public frontend. Visitors never see Drafts.
 _Avoid_: guest, reader, user
 
+**Login Lockout**:
+The state of a source IP after 3 consecutive failed login attempts: every further login attempt from that IP is refused for 5 minutes, even with the correct password. A successful login clears the IP's failure count; new attempts during the lockout do not restart the timer.
+_Avoid_: ban, block, freeze
+
 **Slug**:
 The unique, URL-friendly identifier of an Article. The public URL of a published article is `/posts/{slug}`.
 _Avoid_: permalink, alias

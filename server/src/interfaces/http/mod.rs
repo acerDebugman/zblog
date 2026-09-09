@@ -19,6 +19,7 @@ use sqlx::SqlitePool;
 
 use crate::config::Config;
 use crate::infrastructure::article_repo::ArticleRepo;
+use crate::infrastructure::login_throttle::LoginThrottle;
 use crate::infrastructure::pageview_repo::PageviewRepo;
 
 /// Shared application state.
@@ -28,6 +29,8 @@ pub struct AppState {
     pub articles: ArticleRepo,
     /// Pageview repository.
     pub pageviews: PageviewRepo,
+    /// Per-IP login attempt throttle (in-memory, reset on restart).
+    pub login_throttle: LoginThrottle,
     /// Runtime configuration.
     pub config: Arc<Config>,
     /// Key used for private (signed+encrypted) cookies.
@@ -54,6 +57,7 @@ impl AppState {
         Self {
             articles: ArticleRepo::new(pool.clone()),
             pageviews: PageviewRepo::new(pool),
+            login_throttle: LoginThrottle::new(),
             config: Arc::new(config),
             cookie_key,
         }

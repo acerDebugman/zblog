@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { login } from '../lib/api'
+import { login, LoginLockedError } from '../lib/api'
 
 const password = ref('')
 const error = ref('')
 const submitting = ref(false)
+
+function lockoutMessage(retryAfter: number): string {
+  const minutes = Math.floor(retryAfter / 60)
+  const seconds = Math.ceil(retryAfter % 60)
+  return minutes > 0
+    ? `尝试次数过多，请 ${minutes} 分 ${seconds} 秒后重试。`
+    : `尝试次数过多，请 ${seconds} 秒后重试。`
+}
 
 async function submit() {
   error.value = ''
@@ -12,8 +20,8 @@ async function submit() {
   try {
     await login(password.value)
     window.location.assign('/admin')
-  } catch {
-    error.value = '密码错误，请重试。'
+  } catch (e) {
+    error.value = e instanceof LoginLockedError ? lockoutMessage(e.retryAfter) : '密码错误，请重试。'
   } finally {
     submitting.value = false
   }
