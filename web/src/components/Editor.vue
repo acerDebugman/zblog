@@ -90,15 +90,13 @@ async function remove() {
       />
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+    <div class="editor-panes">
       <textarea
         v-model="markdown"
-        class="input"
-        rows="22"
+        class="input editor-input"
         placeholder="用 Markdown 写作，支持 $E=mc^2$ 这样的数学公式…"
-        style="font-family: ui-monospace, Menlo, monospace; resize: vertical"
       />
-      <div class="card article-body" data-test="preview" style="overflow-x: auto" v-html="html" />
+      <div class="card article-body editor-preview" data-test="preview" v-html="html" />
     </div>
 
     <p v-if="error" class="error-text" data-test="error">{{ error }}</p>
@@ -123,3 +121,33 @@ async function remove() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.editor-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.editor-input {
+  font-family: ui-monospace, Menlo, monospace;
+  resize: none;
+  height: calc(100vh - 320px);
+  min-height: 400px;
+}
+.editor-preview {
+  overflow: auto;
+  height: calc(100vh - 320px);
+  min-height: 400px;
+}
+
+@media (max-width: 767px) {
+  .editor-panes {
+    grid-template-columns: 1fr;
+  }
+  .editor-input,
+  .editor-preview {
+    height: auto;
+    min-height: 400px;
+  }
+}
+</style>

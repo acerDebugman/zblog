@@ -23,6 +23,8 @@ a { color: inherit; text-decoration: none; }
 a:hover { color: var(--accent); }
 
 .site-shell { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+.site-shell--medium { max-width: 900px; }
+.site-shell--wide { max-width: 1200px; }
 
 .site-header {
   display: flex;
