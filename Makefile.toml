@@ -1,0 +1,123 @@
+# zblog 统一任务入口。用法：cargo make <任务>
+# 列出全部任务：cargo make --list-all-steps
+
+# 自定义任务与内置任务同名（check/test/build），跳过内置任务避免命令合并
+[config]
+skip_core_tasks = true
+
+[env]
+SERVER_MANIFEST = "server/Cargo.toml"
+DOCKER_IMAGE = "zblog:dev"
+DOCKER_TARGET_DIR = "target/manylinux"
+
+[tasks.default]
+description = "列出全部任务"
+command = "cargo"
+args = ["make", "--list-all-steps"]
+
+# ---------- 开发 ----------
+
+[tasks.dev]
+description = "后端开发服务（需先 export ZBLOG_PASSWORD_HASH / ZBLOG_SESSION_SECRET）"
+cwd = "server"
+command = "cargo"
+args = ["run"]
+
+[tasks.dev-web]
+description = "前端开发服务（/api 代理到 127.0.0.1:8080）"
+cwd = "web"
+command = "pnpm"
+args = ["dev"]
+
+# ---------- 测试 ----------
+
+[tasks.test]
+description = "全部测试（后端 + 前端）"
+dependencies = ["test-server", "test-web"]
+
+[tasks.test-server]
+description = "后端测试"
+command = "cargo"
+args = ["test", "--manifest-path", "${SERVER_MANIFEST}"]
+
+[tasks.test-web]
+description = "前端测试"
+cwd = "web"
+command = "pnpm"
+args = ["vitest", "run"]
+
+# ---------- 检查 ----------
+
+[tasks.check]
+description = "全部静态检查（clippy + astro check）"
+dependencies = ["check-server", "check-web"]
+
+[tasks.check-server]
+description = "后端 clippy"
+command = "cargo"
+args = ["clippy", "--manifest-path", "${SERVER_MANIFEST}", "--all-targets"]
+
+[tasks.check-web]
+description = "前端类型检查"
+cwd = "web"
+command = "pnpm"
+args = ["astro", "check"]
+
+# ---------- 构建 ----------
+
+[tasks.build]
+description = "本地生产构建（web/dist + release 二进制）"
+dependencies = ["build-web", "build-server"]
+
+[tasks.build-web]
+description = "前端静态构建"
+cwd = "web"
+script = """
+pnpm install --frozen-lockfile
+pnpm build
+"""
+
+[tasks.build-server]
+description = "后端 release 构建（嵌入 web/dist）"
+command = "cargo"
+args = ["build", "--release", "--manifest-path", "${SERVER_MANIFEST}"]
+
+[tasks.hash-password]
+description = "生成管理员密码哈希"
+cwd = "server"
+command = "cargo"
+args = ["run", "--example", "hash_password"]
+
+# ---------- 发布打包 ----------
+
+# 镜像内没有 node/pnpm，前端在宿主机构建；容器只做 Rust 编译。
+# CARGO_HOME 挂到仓库内 .cache/cargo，缓存可复用且属主为宿主机用户。
+[tasks.package]
+description = "发布打包：zblog:dev 镜像内编译 manylinux 单二进制 → dist/"
+dependencies = ["build-web", "package-docker", "package-collect"]
+
+# 镜像的 Rust 工具链在 /root 下且不在 PATH（仅 root 可执行），容器内以 root 编译，
+# 结束后把产物属主改回宿主机用户，避免 root-owned 文件污染工作区。
+[tasks.package-docker]
+description = "在 zblog:dev 镜像内执行 release 构建"
+env = { "HOST_UID" = { script = ["id -u"] }, "HOST_GID" = { script = ["id -g"] } }
+script = '''
+mkdir -p .cache/cargo
+docker run --rm \
+  -v "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}:/work" \
+  -v "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.cache/cargo:/cargo" \
+  -w /work/server \
+  -e CARGO_HOME=/cargo \
+  -e CARGO_TARGET_DIR=${DOCKER_TARGET_DIR} \
+  ${DOCKER_IMAGE} \
+  bash -c "export PATH=/root/.cargo/bin:\$PATH && cargo build --release && chown -R ${HOST_UID}:${HOST_GID} /cargo /work/server/${DOCKER_TARGET_DIR}"
+'''
+
+[tasks.package-collect]
+description = "收集产物到 dist/"
+script = """
+mkdir -p dist
+cp "server/${DOCKER_TARGET_DIR}/release/zblog-server" dist/zblog-server
+(cd dist && sha256sum zblog-server > zblog-server.sha256)
+ls -lh dist/
+"""

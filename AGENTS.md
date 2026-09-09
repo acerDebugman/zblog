@@ -17,13 +17,16 @@ zblog 是一个博客项目。
 
 ## Build & Test Commands
 
-- 后端运行: `cd server && cargo run`（需 `ZBLOG_PASSWORD_HASH`、`ZBLOG_SESSION_SECRET` 环境变量）
-- 后端测试: `cargo test --manifest-path server/Cargo.toml`
-- 后端 lint: `cargo clippy --manifest-path server/Cargo.toml --all-targets`
-- 前端开发: `cd web && pnpm dev`（vite 将 `/api` 代理到 `127.0.0.1:8080`）
-- 生产构建: `cd web && pnpm build && cd ../server && cargo build --release`（必须先构建前端，`web/dist` 会被嵌入二进制）
-- 前端测试: `cd web && pnpm vitest run`
-- 前端类型检查: `cd web && pnpm astro check`
+统一入口为仓库根目录的 `Makefile.toml`（cargo-make），在根目录执行：
+
+- 后端开发: `cargo make dev`（需 `ZBLOG_PASSWORD_HASH`、`ZBLOG_SESSION_SECRET` 环境变量）
+- 前端开发: `cargo make dev-web`（vite 将 `/api` 代理到 `127.0.0.1:8080`）
+- 全部测试: `cargo make test`（后端 `cargo test` + 前端 `pnpm vitest run`）
+- 全部检查: `cargo make check`（`cargo clippy --all-targets` + `pnpm astro check`）
+- 本地生产构建: `cargo make build`（必须先构建前端，`web/dist` 会被嵌入二进制）
+- 发布打包: `cargo make package`（在 `zblog:dev` manylinux 镜像内编译，产物为 `dist/zblog-server` + `.sha256`；容器内以 root 编译后 chown 回宿主机用户）
+- 生成密码哈希: `cargo make hash-password`
+- 列出全部任务: `cargo make --list-all-steps`
 
 ## Technology Stack
 
