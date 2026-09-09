@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import {
   adminCreateArticle,
   adminUpdateArticle,
@@ -19,6 +19,29 @@ const status = ref<Article['status']>(props.article?.status ?? 'draft')
 const currentId = ref<number | null>(props.article?.id ?? null)
 const error = ref('')
 const busy = ref(false)
+const saved = ref(false)
+let savedTimer: ReturnType<typeof setTimeout> | undefined
+
+function showSaved() {
+  saved.value = true
+  clearTimeout(savedTimer)
+  savedTimer = setTimeout(() => {
+    saved.value = false
+  }, 2000)
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 's') return
+  e.preventDefault()
+  if (busy.value) return
+  void save()
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+  clearTimeout(savedTimer)
+})
 
 async function save(): Promise<boolean> {
   error.value = ''
@@ -39,6 +62,7 @@ async function save(): Promise<boolean> {
         markdown: markdown.value,
       })
     }
+    showSaved()
     return true
   } catch (e) {
     error.value = e instanceof Error ? e.message : '保存失败'
@@ -102,6 +126,7 @@ async function remove() {
       <span class="muted" style="font-size: 14px">
         当前状态：{{ status === 'draft' ? '草稿' : '已发布' }}
       </span>
+      <span v-if="saved" class="muted" data-test="saved" style="font-size: 14px">已保存</span>
       <a v-if="currentId !== null && status === 'draft'" :href="`/preview/${slug}`" target="_blank">
         预览 →
       </a>
