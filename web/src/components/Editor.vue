@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import {
   adminCreateArticle,
   adminUpdateArticle,
@@ -8,7 +8,6 @@ import {
   unpublishArticle,
   type Article,
 } from '../lib/api'
-import { renderMarkdown } from '../lib/markdown'
 
 type Props = { article?: Article }
 const props = defineProps<Props>()
@@ -16,19 +15,10 @@ const props = defineProps<Props>()
 const title = ref(props.article?.title ?? '')
 const slug = ref(props.article?.slug ?? '')
 const markdown = ref(props.article?.markdown ?? '')
-const html = ref('')
 const status = ref<Article['status']>(props.article?.status ?? 'draft')
 const currentId = ref<number | null>(props.article?.id ?? null)
 const error = ref('')
 const busy = ref(false)
-
-watch(
-  markdown,
-  async (value) => {
-    html.value = await renderMarkdown(value)
-  },
-  { immediate: true },
-)
 
 async function save(): Promise<boolean> {
   error.value = ''
@@ -90,14 +80,11 @@ async function remove() {
       />
     </div>
 
-    <div class="editor-panes">
-      <textarea
-        v-model="markdown"
-        class="input editor-input"
-        placeholder="用 Markdown 写作，支持 $E=mc^2$ 这样的数学公式…"
-      />
-      <div class="card article-body editor-preview" data-test="preview" v-html="html" />
-    </div>
+    <textarea
+      v-model="markdown"
+      class="input editor-input"
+      placeholder="用 Markdown 写作，支持 $E=mc^2$ 这样的数学公式…"
+    />
 
     <p v-if="error" class="error-text" data-test="error">{{ error }}</p>
 
@@ -123,31 +110,10 @@ async function remove() {
 </template>
 
 <style scoped>
-.editor-panes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
 .editor-input {
   font-family: ui-monospace, Menlo, monospace;
   resize: none;
   height: calc(100vh - 320px);
   min-height: 400px;
-}
-.editor-preview {
-  overflow: auto;
-  height: calc(100vh - 320px);
-  min-height: 400px;
-}
-
-@media (max-width: 767px) {
-  .editor-panes {
-    grid-template-columns: 1fr;
-  }
-  .editor-input,
-  .editor-preview {
-    height: auto;
-    min-height: 400px;
-  }
 }
 </style>

@@ -31,10 +31,6 @@ _Avoid_: permalink, alias
 A formula written inside an Article's Markdown source: `$...$` for inline, `$$...$$` for display blocks.
 _Avoid_: equation block, latex
 
-**Live Preview**:
-The in-editor real-time rendering of the Markdown being written, shown next to the editor in the admin.
-_Avoid_: WYSIWYG
-
 **Draft Preview**:
 A protected route (`/preview/{slug}`) rendering a Draft in the real site layout, for the Author to verify appearance before publishing.
 _Avoid_: staging page

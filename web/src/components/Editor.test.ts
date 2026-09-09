@@ -25,16 +25,6 @@ beforeEach(() => vi.stubGlobal('fetch', vi.fn()))
 afterEach(() => vi.unstubAllGlobals())
 
 describe('Editor', () => {
-  it('renders markdown preview live as the author types', async () => {
-    const wrapper = mount(Editor, { props: {} })
-    await wrapper.find('textarea').setValue('# 标题 $x^2$')
-    await vi.waitFor(() => {
-      const preview = wrapper.find('[data-test="preview"]')
-      expect(preview.html()).toContain('<h1>')
-      expect(preview.html()).toContain('class="katex"')
-    })
-  })
-
   it('creates a draft via the proxy when saving a new article', async () => {
     vi.mocked(fetch).mockResolvedValue(jsonResponse(201, draft))
     const wrapper = mount(Editor, { props: {} })
